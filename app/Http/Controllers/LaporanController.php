@@ -13,24 +13,18 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 
 class LaporanController extends Controller
 {
-    /**
-     * Menampilkan halaman indeks laporan.
-     */
+    
     public function index()
     {
-        // Mengambil data terbaru untuk ditampilkan di tabel view
+        
         $penilaian = Penilaian::with(['kelas', 'user'])->latest()->get();
         return view('laporan.index', compact('penilaian'));
     }
 
-    /**
-     * Export data ke dalam format Excel (.xlsx)
-     */
+   
     public function exportExcel()
     {
-        // Mengambil data dan melakukan pengurutan:
-        // 1. Berdasarkan Nama Kelas (Ascending)
-        // 2. Berdasarkan Skor Tertinggi (Descending)
+       
         $penilaian = Penilaian::with(['kelas', 'user'])->get()
             ->sortBy([
                 fn($a, $b) => ($a->kelas->nama_kelas ?? '') <=> ($b->kelas->nama_kelas ?? ''),
@@ -41,7 +35,7 @@ class LaporanController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Rekap Nilai Kebersihan');
 
-        // --- Judul Laporan ---
+        
         $sheet->setCellValue('A1', 'LAPORAN REKAPITULASI NILAI KEBERSIHAN KELAS');
         $sheet->mergeCells('A1:G1');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
@@ -51,11 +45,11 @@ class LaporanController extends Controller
         $sheet->mergeCells('A2:G2');
         $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        // --- Header Tabel ---
+        
         $header = ['NO', 'TANGGAL', 'UNIT KELAS', 'PETUGAS PENILAI', 'SKOR', 'CATATAN', 'VISUAL BUKTI'];
         $sheet->fromArray($header, null, 'A4');
 
-        // Styling Header
+        
         $sheet->getStyle('A4:G4')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'alignment' => [
@@ -71,7 +65,7 @@ class LaporanController extends Controller
             ],
         ]);
 
-        // --- Isi Data ---
+       
         $currentRow = 5;
         $no = 1;
 
@@ -85,10 +79,10 @@ class LaporanController extends Controller
             $sheet->setCellValue("E$currentRow", $skor);
             $sheet->setCellValue("F$currentRow", $p->catatan ?? '-');
 
-            // --- Menangani Gambar (Visual) ---
+            
             $pathFoto = public_path('storage/' . $p->foto);
             
-            // Cek apakah file foto ada dan library GD aktif (Drawing butuh GD)
+           
             if ($p->foto && file_exists($pathFoto) && extension_loaded('gd')) {
                 try {
                     $drawing = new Drawing();
@@ -100,7 +94,7 @@ class LaporanController extends Controller
                     $drawing->setOffsetY(5);
                     $drawing->setWorksheet($sheet);
 
-                    // Atur tinggi baris agar gambar muat
+                   
                     $sheet->getRowDimension($currentRow)->setRowHeight(60);
                 } catch (\Exception $e) {
                     $sheet->setCellValue("G$currentRow", "Gagal memuat gambar");
@@ -109,7 +103,7 @@ class LaporanController extends Controller
                 $sheet->setCellValue("G$currentRow", $p->foto ? "GD Off / File Not Found" : "-");
             }
 
-            // --- Highlight baris jika skor buruk (di bawah 60) ---
+            
             if ($skor < 60) {
                 $sheet->getStyle("A$currentRow:G$currentRow")->getFill()
                     ->setFillType(Fill::FILL_SOLID)
@@ -119,32 +113,32 @@ class LaporanController extends Controller
             $currentRow++;
         }
 
-        // --- Styling Akhir (Formatting) ---
+       
         $lastRow = $currentRow - 1;
 
-        // Auto size kolom A sampai E
+       
         foreach (range('A', 'E') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
-        // Setting lebar kolom Catatan dan Visual
+        
         $sheet->getColumnDimension('F')->setWidth(35); 
         $sheet->getColumnDimension('G')->setWidth(25); 
 
-        // Alignment konten tabel
+       
         $sheet->getStyle("A5:G$lastRow")->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
         $sheet->getStyle("A5:E$lastRow")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle("F5:F$lastRow")->getAlignment()->setWrapText(true);
         $sheet->getStyle("G5:G$lastRow")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        // Border untuk seluruh tabel data
+       
         $sheet->getStyle("A4:G$lastRow")->applyFromArray([
             'borders' => [
                 'allBorders' => ['borderStyle' => Border::BORDER_THIN],
             ],
         ]);
 
-        // --- Proses Download ---
+        
         $filename = "Rekap_Kebersihan_Maja_" . date('d-m-Y_H-i') . ".xlsx";
         $writer = new Xlsx($spreadsheet);
 
